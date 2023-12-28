@@ -652,6 +652,55 @@ class DreamBoothDataset(Dataset):
                 self.custom_instance_prompts = []
                 for caption in custom_instance_prompts:
                     self.custom_instance_prompts.extend(itertools.repeat(caption, repeats))
+         elif os.path.exists(os.path.join(args.instance_data_dir, "metadata.jsonl")) or os.path.exists(os.path.join(args.instance_data_dir, "metadata.csv")):
+            try:
+                from datasets import load_dataset
+            except ImportError:
+                raise ImportError(
+                    "You are trying to load your data using the datasets library. If you wish to train using custom "
+                    "captions please install the datasets library: `pip install datasets`. If you wish to load a "
+                    "local folder containing images only, specify --instance_data_dir instead."
+                )
+            data_files = {}
+            if args.instance_data_dir is not None:
+                data_files["train"] = os.path.join(args.instance_data_dir, "**")
+            dataset = load_dataset(
+                "imagefolder",
+                data_files=data_files,
+                cache_dir=args.cache_dir,
+            )
+            # Preprocessing the datasets.
+            column_names = dataset["train"].column_names
+
+            # 6. Get the column names for input/target.
+            if args.image_column is None:
+                image_column = column_names[0]
+                logger.info(f"image column defaulting to {image_column}")
+            else:
+                image_column = args.image_column
+                if image_column not in column_names:
+                    raise ValueError(
+                        f"`--image_column` value '{args.image_column}' not found in dataset columns. Dataset columns are: {', '.join(column_names)}"
+                    )
+            instance_images = dataset["train"][image_column]
+
+            if args.caption_column is None:
+                logger.info(
+                    "No caption column provided, defaulting to instance_prompt for all images. If your dataset "
+                    "contains captions/prompts for the images, make sure to specify the "
+                    "column as --caption_column"
+                )
+                self.custom_instance_prompts = None
+            else:
+                if args.caption_column not in column_names:
+                    raise ValueError(
+                        f"`--caption_column` value '{args.caption_column}' not found in dataset columns. Dataset columns are: {', '.join(column_names)}"
+                    )
+                custom_instance_prompts = dataset["train"][args.caption_column]
+                # create final list of captions according to --repeats
+                self.custom_instance_prompts = []
+                for caption in custom_instance_prompts:
+                    self.custom_instance_prompts.extend(itertools.repeat(caption, repeats))
         else:
             self.instance_data_root = Path(instance_data_root)
             if not self.instance_data_root.exists():
