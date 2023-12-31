@@ -617,9 +617,15 @@ def main():
                 if args.use_ema:
                     ema_unet.save_pretrained(os.path.join(output_dir, "unet_ema"))
 
-                for i, model in enumerate(models):
-                    model.save_pretrained(os.path.join(output_dir, "unet"))
+                # for i, model in enumerate(models):
+                #     model.save_pretrained(os.path.join(output_dir, "unet"))
 
+                #     # make sure to pop weight so that corresponding model is not saved again
+                #     weights.pop()
+                for model in models:
+                    sub_dir = "unet" if isinstance(model, type(accelerator.unwrap_model(unet))) else "text_encoder"
+                    model.save_pretrained(os.path.join(output_dir, sub_dir))
+    
                     # make sure to pop weight so that corresponding model is not saved again
                     weights.pop()
 
